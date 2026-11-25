@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>손코딩 수행평가 질문 챗봇 (2차)</title>
+<style>
+  :root {
+    --bg: #f3f7f4; --card: #ffffff; --ink: #1f2937; --muted: #6b7280;
+    --brand: #1f6f4a; --brand-2: #2e9d68; --bot: #edf6f0; --me: #1f6f4a; --line: #d8e6dd;
+    --err: #c0392b; --warn-bg: #fdecea; --ok: #1e7e34; --good-bg: #eaf7ee; --bad-bg: #fff4e5;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding: 16px; }
+  .wrap.wide { max-width: 1100px; }
+  header { padding: 8px 4px 16px; }
+  header h1 { margin: 0; font-size: 20px; color: var(--brand); }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 4px 16px rgba(31,111,74,.06); }
+  .hidden { display: none !important; }
+
+  /* 첫 화면 탭 */
+  #entry { overflow: hidden; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tab { flex: 1; padding: 14px; font-size: 15px; font-weight: 700; background: #f6faf7; color: var(--muted); border: 0; cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--card); color: var(--brand); box-shadow: inset 0 -3px 0 var(--brand); }
+  .pane { padding: 24px; }
+  .pane h2 { margin: 0 0 6px; font-size: 18px; }
+  .hint { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 14px 0 6px; }
+  input[type=text], input[type=password], input:not([type]), select { width: 100%; font-size: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; outline: none; background: #fbfdfc; font-family: inherit; }
+  input:focus, select:focus { border-color: var(--brand-2); box-shadow: 0 0 0 3px rgba(46,157,104,.15); }
+  .btn { margin-top: 20px; width: 100%; padding: 13px; font-size: 16px; font-weight: 700; color: #fff; background: var(--brand); border: 0; border-radius: 10px; cursor: pointer; }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .err { color: var(--err); font-size: 14px; min-height: 20px; margin-top: 12px; line-height: 1.5; }
+  .err.locked { background: var(--warn-bg); border-radius: 10px; padding: 12px; font-weight: 600; }
+
+  /* 채점 기준 */
+  details.rubric { margin-top: 22px; border: 1px solid var(--line); border-radius: 12px; background: #fbfdfc; }
+  details.rubric summary { cursor: pointer; padding: 12px 14px; font-weight: 700; font-size: 14px; color: var(--brand); }
+  .rubric-body { padding: 0 14px 14px; font-size: 13px; line-height: 1.6; }
+  .rubric-body table { min-width: 0; font-size: 13px; }
+  .rubric-body td, .rubric-body th { text-align: left; vertical-align: top; padding: 8px; }
+  .rubric-body ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); }
+
+  /* 챗봇 */
+  #chat { flex: 1; flex-direction: column; overflow: hidden; min-height: 72vh; display: flex; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .bar strong { font-size: 15px; }
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 14px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+  .bot { background: var(--bot); align-self: flex-start; border-top-left-radius: 4px; }
+  .me { background: var(--me); color: #fff; align-self: flex-end; border-top-right-radius: 4px; }
+  .msg pre, pre.code { margin: 8px 0 0; padding: 12px; background: #1e2a24; color: #e6f2ea; border-radius: 10px; font: 13px/1.5 Consolas, "D2Coding", monospace; white-space: pre; overflow-x: auto; word-break: normal; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+  .chip { border: 1px solid var(--brand-2); color: var(--brand); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  form.send { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  form.send input { flex: 1; }
+  form.send button { padding: 0 18px; font-weight: 700; color: #fff; background: var(--brand); border: 0; border-radius: 10px; cursor: pointer; }
+
+  /* 교사 */
+  #admin { overflow: hidden; }
+  .subtabs { display: flex; gap: 6px; padding: 12px 16px 0; }
+  .subtab { border: 1px solid var(--line); border-bottom: 0; background: #f6faf7; color: var(--muted); padding: 9px 14px; border-radius: 10px 10px 0 0; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .subtab[aria-selected="true"] { background: #fff; color: var(--brand); }
+  .admin-body { padding: 16px; border-top: 1px solid var(--line); }
+  .admin-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .admin-tools .count { color: var(--muted); font-size: 14px; margin-right: auto; }
+  .admin-tools select, .admin-tools input { width: auto; font-size: 14px; padding: 8px 10px; }
+  .primary { padding: 9px 14px; font-size: 14px; font-weight: 700; color: #fff; background: var(--brand); border: 0; border-radius: 8px; cursor: pointer; }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 420px; }
+  th, td { padding: 9px 8px; text-align: center; border-bottom: 1px solid var(--line); }
+  th { background: #f6faf7; color: var(--muted); font-weight: 700; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #f8fcf9; }
+  tbody tr.click { cursor: pointer; }
+  tbody tr.sel { background: #e3f3e9; }
+  td.lost { color: var(--err); font-weight: 700; }
+  td.total { font-weight: 800; }
+  input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
+  .empty { padding: 28px; text-align: center; color: var(--muted); font-size: 14px; }
+  .notice { font-size: 14px; min-height: 20px; margin-top: 10px; }
+  .notice.ok { color: var(--ok); } .notice.bad { color: var(--err); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fbfdfc; }
+  .stat b { display: block; font-size: 18px; color: var(--brand); }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+  .detail { border: 1px solid var(--line); border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.6; position: sticky; top: 12px; max-height: calc(100vh - 40px); overflow-y: auto; }
+  .detail h3 { margin: 0 0 8px; font-size: 16px; }
+  .detail h4 { margin: 14px 0 6px; font-size: 14px; color: var(--brand); }
+  .box { border-radius: 8px; padding: 8px 10px; margin: 4px 0; white-space: pre-wrap; }
+  .box.good { background: var(--good-bg); } .box.bad { background: var(--bad-bg); } .box.fail { background: var(--warn-bg); font-weight: 600; }
+  .box.preview { background: var(--bot); }
+  .scorebar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .scorebar span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .scorebar span.lost { border-color: #f0b4ad; color: var(--err); }
+
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 14px 4px 4px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header>
+    <h1>손코딩 수행평가 질문 챗봇</h1>
+    <p>실생활 문제 발견·분석을 통한 SDGs 문제 해결 프로젝트 · 손코딩 수행평가(20점)</p>
+  </header>
+
+  <!-- 첫 화면: 학생 / 교사 -->
+  <section id="entry" class="card">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabStudent" aria-selected="true">학생</button>
+      <button class="tab" role="tab" id="tabAdmin" aria-selected="false">교사</button>
+    </div>
+
+    <div class="pane" id="paneStudent">
+      <h2>학생 확인</h2>
+      <p class="hint">학번, 이름, 안내받은 손코딩 수행평가 점수를 입력하면 내 점수와 감점 이유를 물어볼 수 있어요.<br><b>이름이나 점수를 2번 틀리게 입력하면 계정이 잠기고</b>, 선생님이 풀어 주셔야 다시 접속할 수 있어요.</p>
+      <form id="loginForm" autocomplete="off">
+        <label for="sid">학번</label>
+        <input id="sid" inputmode="numeric" maxlength="5" placeholder="예: 20601" required>
+        <label for="name">이름</label>
+        <input id="name" maxlength="10" placeholder="예: 홍길동" required>
+        <label for="score">손코딩 수행평가 점수 (20점 만점)</label>
+        <input id="score" inputmode="numeric" maxlength="2" placeholder="예: 17" required>
+        <button class="btn" id="loginBtn" type="submit">확인하고 시작하기</button>
+        <div class="err" id="loginErr" role="alert"></div>
+      </form>
+
+      <details class="rubric">
+        <summary>채점 기준 미리 보기</summary>
+        <div class="rubric-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>항목 (각 5점)</th><th>5점</th><th>4점</th><th>3점</th><th>2점</th></tr></thead>
+              <tbody>
+                <tr><th>실행가능성</th><td>고칠 곳 없이 그대로 실행됨</td><td>콜론·괄호·대소문자·오타 등 1~2곳만 고치면 실행됨</td><td>논리 오류가 있거나 여러 곳을 고쳐야 실행됨</td><td>일부만 작성되어 실행 단계까지 가지 못함</td></tr>
+                <tr><th>효율성</th><td>활동지 코드의 리스트·반복·조건 구조를 그대로 살림</td><td>일부 단계가 빠지거나 비효율이 있음 (조건문만 쓴 코드 포함)</td><td>주요 구조를 일부만 구현</td><td>반복·탐색 구조가 거의 없음</td></tr>
+                <tr><th>문법의 정확성</th><td>문법 오류가 하나도 없음</td><td>사소한 실수 1~2곳</td><td>문법 오류 여러 곳 또는 들여쓰기가 크게 어긋남</td><td>코드로 성립하기 어려움 (의사코드 수준)</td></tr>
+                <tr><th>알고리즘</th><td>입력→저장/누적→조회·갱신→출력을 논리 오류 없이 모두 재현</td><td>일부 단계 누락 또는 논리 오류</td><td>주요 단계를 일부만 재현</td><td>알고리즘의 일부만 작성</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul>
+            <li>비교 기준: 본인 활동지의 [3. 자동화 - (1) 프로그래밍] 코드</li>
+            <li>만점은 오류 없이 완벽하게 재현한 경우에만 줘요. 그대로 실행되지 않으면 실수가 하나여도 실행가능성에서 감점해요.</li>
+            <li>코드를 조금이라도 썼다면 항목별 최소 2점이에요.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+
+    <div class="pane hidden" id="paneAdmin">
+      <h2>교사 로그인</h2>
+      <p class="hint">학생별 채점 결과와 감점 근거를 확인하고, 로그인 오류로 계정이 잠긴 학생의 잠금을 풀 수 있어요.</p>
+      <form id="adminForm" autocomplete="off">
+        <label for="aid">교사 ID</label>
+        <input id="aid" type="text" autocomplete="username" required>
+        <label for="apw">비밀번호</label>
+        <input id="apw" type="password" autocomplete="current-password" required>
+        <button class="btn" id="adminBtn" type="submit">교사 로그인</button>
+        <div class="err" id="adminErr" role="alert"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- 학생 챗봇 -->
+  <section id="chat" class="card hidden">
+    <div class="bar">
+      <strong id="who"></strong>
+      <button type="button" class="ghost" id="logout">처음으로</button>
+    </div>
+    <div id="log" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <form class="send" id="sendForm" autocomplete="off">
+      <input id="q" maxlength="300" placeholder="예: 실행가능성은 왜 감점됐어?">
+      <button type="submit">보내기</button>
+    </form>
+  </section>
+
+  <!-- 교사 화면 -->
+  <section id="admin" class="card hidden">
+    <div class="bar">
+      <strong>교사 · 손코딩 수행평가 관리</strong>
+      <button type="button" class="ghost" id="adminLogout">로그아웃</button>
+    </div>
+    <div class="subtabs" role="tablist">
+      <button class="subtab" role="tab" id="stScores" aria-selected="true">학생별 채점 결과</button>
+      <button class="subtab" role="tab" id="stLocks" aria-selected="false">계정 잠긴 학생</button>
+    </div>
+
+    <div class="admin-body" id="viewScores">
+      <div class="stats" id="stats"></div>
+      <div class="admin-tools">
+        <span class="count" id="stuCount"></span>
+        <select id="clsFilter" aria-label="반 선택"><option value="">전체 반</option></select>
+        <input id="search" placeholder="학번·이름 검색" aria-label="학번 또는 이름 검색">
+      </div>
+      <div class="split">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>반</th><th>학번</th><th>이름</th><th>실행</th><th>효율</th><th>문법</th><th>알고</th><th>총점</th></tr></thead>
+            <tbody id="stuRows"></tbody>
+          </table>
+        </div>
+        <div class="detail" id="detail"><p class="hint" style="margin:0">왼쪽 표에서 학생을 누르면 채점 근거와 활동지 코드, 학생에게 보이는 답변을 볼 수 있어요.</p></div>
+      </div>
+    </div>
+
+    <div class="admin-body hidden" id="viewLocks">
+      <div class="admin-tools">
+        <span class="count" id="lockCount">불러오는 중…</span>
+        <button type="button" class="ghost" id="refresh">새로고침</button>
+        <button type="button" class="primary" id="unlockBtn" disabled>선택한 학생 잠금 풀기</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="checkAll" aria-label="전체 선택"></th>
+              <th>반</th><th>학번</th><th>이름</th><th>오류 내용</th><th>잠긴 시각</th>
+            </tr>
+          </thead>
+          <tbody id="lockRows"></tbody>
+        </table>
+        <div class="empty hidden" id="lockEmpty">계정이 잠긴 학생이 없어요.</div>
+      </div>
+      <div class="notice" id="adminNotice" role="status"></div>
+    </div>
+  </section>
+
+  <footer>답변은 선생님의 채점 결과와 채점 기준으로만 만들어져요.<br>점수에 이의가 있으면 정보과학 선생님께 직접 말씀드려 주세요.</footer>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  let me = null;          // 학생 정보
+  let adminToken = null;  // 교사 토큰 (새로고침하면 다시 로그인)
+  let students = [];
+  let selected = null;
+
+  async function post(url, body) {
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      let data = {};
+      try { data = await r.json(); } catch (e) {}
+      return { ok: r.ok && data.ok, status: r.status, data };
+    } catch (e) {
+      return { ok: false, status: 0, data: { message: '네트워크 연결을 확인해 주세요.' } };
+    }
+  }
+
+  function show(id) {
+    ['entry', 'chat', 'admin'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+    $('wrap').classList.toggle('wide', id === 'admin');
+  }
+
+  // ---------- 첫 화면 탭 ----------
+  function selectTab(which) {
+    const student = which === 'student';
+    $('tabStudent').setAttribute('aria-selected', student);
+    $('tabAdmin').setAttribute('aria-selected', !student);
+    $('paneStudent').classList.toggle('hidden', !student);
+    $('paneAdmin').classList.toggle('hidden', student);
+  }
+  $('tabStudent').onclick = () => selectTab('student');
+  $('tabAdmin').onclick = () => selectTab('admin');
+
+  // ---------- 학생 ----------
+  function add(text, who, mono) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + who;
+    if (mono) {
+      // 첫 줄(안내)과 코드, 마지막 참고 문구를 나눠 표시
+      const parts = text.split('\n\n');
+      const head = parts.shift();
+      let tail = '';
+      if (parts.length && /^\(참고:/.test(parts[parts.length - 1])) tail = parts.pop();
+      d.textContent = head;
+      const pre = document.createElement('pre');
+      pre.textContent = parts.join('\n\n');
+      d.appendChild(pre);
+      if (tail) { const p = document.createElement('div'); p.textContent = tail; p.style.marginTop = '8px'; d.appendChild(p); }
+    } else {
+      d.textContent = text;
+    }
+    $('log').appendChild(d);
+    $('log').scrollTop = $('log').scrollHeight;
+  }
+
+  function setChips(list) {
+    const box = $('chips');
+    box.innerHTML = '';
+    (list || []).forEach(t => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = t;
+      b.onclick = () => ask(t);
+      box.appendChild(b);
+    });
+  }
+
+  function backToStart(message, locked) {
+    me = null;
+    $('loginForm').reset();
+    show('entry');
+    selectTab('student');
+    $('loginErr').textContent = message || '';
+    $('loginErr').classList.toggle('locked', Boolean(locked));
+  }
+
+  async function ask(text) {
+    text = text.trim();
+    if (!text || !me) return;
+    add(text, 'me');
+    $('q').value = '';
+    const { ok, status, data } = await post('/api/chat', { ...me, message: text });
+    if (status === 423) { backToStart(data.message, true); return; }
+    if (!ok) { add(data.message || '잠시 후 다시 시도해 주세요.', 'bot'); return; }
+    add(data.text, 'bot', data.mono);
+    setChips(data.chips);
+  }
+
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('loginErr');
+    err.textContent = ''; err.classList.remove('locked');
+    const body = { sid: $('sid').value.trim(), name: $('name').value.trim(), score: $('score').value.trim() };
+    if (!/^\d{5}$/.test(body.sid)) { err.textContent = '학번 5자리를 숫자로 입력해 주세요.'; return; }
+    if (!/^\d{1,2}$/.test(body.score)) { err.textContent = '점수는 숫자로만 입력해 주세요. (예: 17)'; return; }
+    $('loginBtn').disabled = true;
+    const { ok, status, data } = await post('/api/login', body);
+    $('loginBtn').disabled = false;
+    if (!ok) {
+      err.textContent = data.message || '확인에 실패했어요. 다시 시도해 주세요.';
+      err.classList.toggle('locked', status === 423);
+      return;
+    }
+    me = body;
+    $('who').textContent = `${data.name} 학생 · 손코딩 ${data.total}점 / 20점`;
+    show('chat');
+    $('log').innerHTML = '';
+    add(data.text, 'bot');
+    setChips(data.chips);
+    $('q').focus();
+  });
+
+  $('sendForm').addEventListener('submit', e => { e.preventDefault(); ask($('q').value); });
+  $('logout').addEventListener('click', () => backToStart(''));
+
+  // ---------- 교사 ----------
+  $('adminForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    $('adminErr').textContent = '';
+    $('adminBtn').disabled = true;
+    const { ok, data } = await post('/api/admin/login', { id: $('aid').value, pw: $('apw').value });
+    $('adminBtn').disabled = false;
+    $('apw').value = '';
+    if (!ok) { $('adminErr').textContent = data.message || '로그인에 실패했어요.'; return; }
+    adminToken = data.token;
+    $('adminForm').reset();
+    show('admin');
+    selectSub('scores');
+    loadStudents();
+    loadLocks();
+  });
+
+  function adminExpired(msg) {
+    adminToken = null;
+    show('entry'); selectTab('admin');
+    $('adminErr').textContent = msg || '교사 로그인이 만료됐어요. 다시 로그인해 주세요.';
+  }
+
+  function selectSub(which) {
+    const s = which === 'scores';
+    $('stScores').setAttribute('aria-selected', s);
+    $('stLocks').setAttribute('aria-selected', !s);
+    $('viewScores').classList.toggle('hidden', !s);
+    $('viewLocks').classList.toggle('hidden', s);
+  }
+  $('stScores').onclick = () => selectSub('scores');
+  $('stLocks').onclick = () => { selectSub('locks'); loadLocks(); };
+
+  // 학생별 채점 결과
+  async function loadStudents() {
+    const { ok, status, data } = await post('/api/admin/students', { token: adminToken, action: 'list' });
+    if (status === 401) return adminExpired(data.message);
+    if (!ok) { $('stuCount').textContent = data.message || '목록을 불러오지 못했어요.'; return; }
+    students = data.items || [];
+    const classes = [...new Set(students.map(s => s.cls))].sort();
+    $('clsFilter').innerHTML = '<option value="">전체 반</option>' + classes.map(c => `<option>${c}</option>`).join('');
+    renderStudents();
+  }
+
+  function avg(list) { return list.length ? (list.reduce((a, s) => a + s.total, 0) / list.length).toFixed(1) : '-'; }
+
+  function renderStudents() {
+    const cls = $('clsFilter').value;
+    const q = $('search').value.trim();
+    const list = students.filter(s => (!cls || s.cls === cls) && (!q || s.sid.includes(q) || s.name.includes(q)));
+    const base = students.filter(s => !cls || s.cls === cls);
+    const statItems = [
+      [cls || '전체', `${base.length}명`],
+      ['평균', `${avg(base)}점`],
+      ['만점(20점)', `${base.filter(s => s.total === 20).length}명`],
+      ['최고 / 최저', base.length ? `${Math.max(...base.map(s => s.total))} / ${Math.min(...base.map(s => s.total))}` : '-'],
+    ];
+    $('stats').innerHTML = '';
+    statItems.forEach(([k, v]) => { const d = document.createElement('div'); d.className = 'stat'; d.innerHTML = '<b></b><span></span>'; d.firstChild.textContent = v; d.lastChild.textContent = k; $('stats').appendChild(d); });
+    $('stuCount').textContent = `${list.length}명 표시`;
+    const tb = $('stuRows');
+    tb.innerHTML = '';
+    list.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.className = 'click' + (s.sid === selected ? ' sel' : '');
+      const cells = [s.cls, s.sid, s.name, ...s.scores, s.total];
+      cells.forEach((v, i) => {
+        const td = document.createElement('td');
+        td.textContent = v;
+        if (i >= 3 && i <= 6 && v < 5) td.className = 'lost';
+        if (i === 7) td.className = 'total';
+        tr.appendChild(td);
+      });
+      tr.onclick = () => openDetail(s.sid);
+      tb.appendChild(tr);
+    });
+  }
+  $('clsFilter').onchange = renderStudents;
+  $('search').oninput = renderStudents;
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  async function openDetail(sid) {
+    selected = sid;
+    renderStudents();
+    const box = $('detail');
+    box.innerHTML = '<p class="hint" style="margin:0">불러오는 중…</p>';
+    const { ok, status, data } = await post('/api/admin/students', { token: adminToken, action: 'detail', sid });
+    if (status === 401) return adminExpired(data.message);
+    if (!ok) { box.textContent = data.message || '불러오지 못했어요.'; return; }
+    const d = data.item;
+    box.innerHTML = '';
+    box.appendChild(el('h3', '', `${d.sid} ${d.name} (${d.cls}) · ${d.total}점 / 20점`));
+    const bar = el('div', 'scorebar');
+    ['실행가능성', '효율성', '문법', '알고리즘'].forEach((n, i) => bar.appendChild(el('span', d.scores[i] < 5 ? 'lost' : '', `${n} ${d.scores[i]}`)));
+    box.appendChild(bar);
+    if (d.fail) { box.appendChild(el('h4', '', '실행 불가 이유')); box.appendChild(el('div', 'box fail', d.fail)); }
+    if (d.bad.length) { box.appendChild(el('h4', '', '아쉬운 점')); d.bad.forEach(b => box.appendChild(el('div', 'box bad', b))); }
+    if (d.good.length) { box.appendChild(el('h4', '', '잘한 점')); d.good.forEach(g => box.appendChild(el('div', 'box good', g))); }
+    if (d.note) { box.appendChild(el('h4', '', '비고')); box.appendChild(el('div', 'box', d.note)); }
+    box.appendChild(el('h4', '', '채점 근거 원문'));
+    box.appendChild(el('div', 'box', d.ev));
+    box.appendChild(el('h4', '', '학생이 "왜 감점됐어?"라고 물으면'));
+    box.appendChild(el('div', 'box preview', d.preview));
+    const det = el('details');
+    det.appendChild(el('summary', '', '활동지 코드 보기'));
+    det.appendChild(el('pre', 'code', d.code || '(코드 없음)'));
+    det.style.marginTop = '12px';
+    box.appendChild(det);
+  }
+
+  // 접속 중단 학생
+  function fmtTime(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderLocks(items) {
+    const tb = $('lockRows');
+    tb.innerHTML = '';
+    items.forEach(it => {
+      const tr = document.createElement('tr');
+      const cells = [it.cls, it.sid, it.name, it.tries || (it.tried != null ? `${it.tried}점 입력` : '-'), fmtTime(it.at)];
+      const td0 = document.createElement('td');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = it.sid; cb.className = 'pick';
+      cb.setAttribute('aria-label', `${it.sid} ${it.name} 선택`);
+      cb.onchange = syncButtons;
+      td0.appendChild(cb); tr.appendChild(td0);
+      cells.forEach(v => { const td = document.createElement('td'); td.textContent = v; tr.appendChild(td); });
+      tb.appendChild(tr);
+    });
+    $('lockEmpty').classList.toggle('hidden', items.length > 0);
+    $('lockCount').textContent = `계정 잠긴 학생 ${items.length}명`;
+    $('stLocks').textContent = items.length ? `계정 잠긴 학생 (${items.length})` : '계정 잠긴 학생';
+    $('checkAll').checked = false;
+    syncButtons();
+  }
+
+  function picked() { return [...document.querySelectorAll('.pick:checked')].map(c => c.value); }
+  function syncButtons() {
+    const n = picked().length, total = document.querySelectorAll('.pick').length;
+    $('unlockBtn').disabled = n === 0;
+    $('unlockBtn').textContent = n ? `선택한 ${n}명 잠금 풀기` : '선택한 학생 잠금 풀기';
+    $('checkAll').checked = total > 0 && n === total;
+  }
+  $('checkAll').onchange = e => { document.querySelectorAll('.pick').forEach(c => { c.checked = e.target.checked; }); syncButtons(); };
+
+  async function loadLocks() {
+    $('adminNotice').textContent = ''; $('adminNotice').className = 'notice';
+    $('lockCount').textContent = '불러오는 중…';
+    const { ok, status, data } = await post('/api/admin/locks', { token: adminToken, action: 'list' });
+    if (status === 401) return adminExpired(data.message);
+    if (!ok) { $('adminNotice').textContent = data.message || '목록을 불러오지 못했어요.'; $('adminNotice').className = 'notice bad'; return; }
+    renderLocks(data.items || []);
+  }
+  $('refresh').onclick = loadLocks;
+
+  $('unlockBtn').onclick = async () => {
+    const sids = picked();
+    if (!sids.length) return;
+    $('unlockBtn').disabled = true;
+    const { ok, status, data } = await post('/api/admin/locks', { token: adminToken, action: 'unlock', sids });
+    if (status === 401) return adminExpired(data.message);
+    if (!ok) { $('adminNotice').textContent = data.message || '잠금을 풀지 못했어요.'; $('adminNotice').className = 'notice bad'; syncButtons(); return; }
+    renderLocks(data.items || []);
+    $('adminNotice').textContent = `${data.unlocked}명의 잠금을 풀었어요. 이제 학생이 다시 접속할 수 있어요.`;
+    $('adminNotice').className = 'notice ok';
+  };
+
+  $('adminLogout').onclick = () => { adminToken = null; selected = null; show('entry'); selectTab('admin'); $('adminErr').textContent = ''; };
+</script>
+</body>
+</html>
